@@ -69,6 +69,26 @@ def generate_images(
 
     return images
 
+from typing import Iterable
+def get_layers(input_channels, hidden_dims, output_dim, layer=nn.Conv2d, hyperparameters=(4, 2, 1), activation=nn.ReLU):
+    if not isinstance(hidden_dims, Iterable):
+        if isinstance(hidden_dims, int):
+            hidden_dims = [hidden_dims] * 3
+    if isinstance(hyperparameters, tuple):
+        hyperparameters = [hyperparameters] * len(hidden_dims)
+
+    layers = []
+    for i, (hdim, hps) in enumerate(zip(hidden_dims, hyperparameters)):
+        if i == 0:
+            prev_hdim = input_channels
+        layers.append(layer(prev_hdim, hdim, *hps))
+        if exists(activation):
+            layers.append(activation())
+        prev_hdim = hdim
+
+    layers.append(layer(prev_hdim, output_dim, 1))
+    return layers
+
 class DiscreteVAE(nn.Module):
     def __init__(
         self,
@@ -77,27 +97,11 @@ class DiscreteVAE(nn.Module):
         hidden_dim = 64
     ):
         super().__init__()
-        hdim = hidden_dim
 
-        self.encoder = nn.Sequential(
-            nn.Conv2d(3, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.Conv2d(hdim, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.Conv2d(hdim, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.Conv2d(hdim, num_tokens, 1)
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(dim, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(hdim, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.ConvTranspose2d(hdim, hdim, 4, stride = 2, padding = 1),
-            nn.ReLU(),
-            nn.Conv2d(hdim, 3, 1)
-        )
+        encoder_layers = get_layers(3, hidden_dim, num_tokens, layer=nn.Conv2d)
+        self.encoder = nn.Sequential(*encoder_layers)
+        decoder_layers = get_layers(dim, hidden_dim, 3, layer=nn.ConvTranspose2d)
+        self.decoder = nn.Sequential(*decoder_layers)
 
         self.num_tokens = num_tokens
         self.codebook = nn.Embedding(num_tokens, dim)
