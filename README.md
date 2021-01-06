@@ -23,7 +23,7 @@ vae = DiscreteVAE(
 )
 
 x = torch.randn(8, 3, 256, 256)
-loss = vae(x, return_recon_loss)
+loss = vae(x, return_recon_loss=True)
 loss.backward()
 ```
 
